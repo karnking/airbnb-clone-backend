@@ -174,7 +174,7 @@ app.post(
 
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
-        throw new ExpressError(401, "Unauthorized user");
+        throw new ExpressError(403, "Unauthorized user");
       };
       const listing = await Listing.create({
         owner: userData.id,
@@ -232,7 +232,7 @@ app.put(
     }
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
-        throw new ExpressError(401, "Unauthorized user");
+        throw new ExpressError(403, "Unauthorized user");
       }
       const listing = await Listing.findById(id);
       if (!listing) {
@@ -252,7 +252,7 @@ app.put(
           price,
         });
       } else {
-        throw new ExpressError(401, "Unauthorized user");
+        throw new ExpressError(403, "Unauthorized user");
       }
       await listing.save();
       res.json("updated successfully");
@@ -285,7 +285,7 @@ app.get(
     }
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
-        throw new ExpressError(401, "Unauthorized User");
+        throw new ExpressError(403, "Unauthorized User");
       }
       const { id } = userData;
       const userlistings = await Listing.find({ owner: id });
