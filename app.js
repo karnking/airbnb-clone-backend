@@ -157,6 +157,20 @@ app.post(
       maxGuests,
       price,
     } = req.body;
+    if (
+      !title ||
+      !address ||
+      !addedPhotos ||
+      !description ||
+      !perks ||
+      !extraInfo ||
+      !checkIn ||
+      !checkOut ||
+      !maxGuests ||
+      !price
+    ) {
+      throw new ExpressError(400, "All fields are required");
+    }
 
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
@@ -185,6 +199,9 @@ app.put(
   "/listings",
   wrapAsync(async (req, res) => {
     const { token } = req.cookies;
+    if(!token){
+      throw new ExpressError(401 , "User not logged In");
+    }
     const {
       id,
       title,
@@ -198,6 +215,21 @@ app.put(
       maxGuests,
       price,
     } = req.body;
+    if (
+      !id ||
+      !title ||
+      !address ||
+      !addedPhotos ||
+      !description ||
+      !perks ||
+      !extraInfo ||
+      !checkIn ||
+      !checkOut ||
+      !maxGuests ||
+      !price
+    ) {
+      throw new ExpressError(400, "All fields are required");
+    }
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
         throw new ExpressError(401, "Unauthorized user");
@@ -376,7 +408,8 @@ app.all("*", (req, res, next) => {
 
 app.use((err, req, res, next) => {
   let { statusCode = 500, message = "Something went wrong!" } = err;
-  res.status(statusCode).json({ error: message });
+  // res.status(statusCode).json({ error: message });
+  res.status(statusCode).send(message);
 });
 
 app.listen(PORT, () => {
