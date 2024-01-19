@@ -9,7 +9,7 @@ const User = require("./models/user.js");
 const Booking = require("./models/booking.js");
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
-// const wrapAsync = require("./utils/wrapAsync.js");
+const wrapAsync = require("./utils/wrapAsync.js");
 const ExpressError = require("./utils/ExpressError.js");
 
 const imageDownloader = require("image-downloader");
@@ -60,8 +60,9 @@ function getUserFromToken(req) {
 }
 
 // login route:
-app.post("/login", async (req, res, next) => {
-  try {
+app.post(
+  "/login",
+  wrapAsync(async (req, res) => {
     const { email, password } = req.body;
     const userDoc = await User.findOne({ email });
     if (userDoc) {
@@ -80,19 +81,21 @@ app.post("/login", async (req, res, next) => {
           }
         );
       } else {
-        res.status(422).json("pass not ok");
+        throw new ExpressError(
+          422,
+          "Incorrect email or password. Please try again."
+        );
       }
     } else {
-      res.json("user not found");
+      throw new ExpressError(404, "User not found");
     }
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
 // register route:
-app.post("/register", async (req, res, next) => {
-  try {
+app.post(
+  "/register",
+  wrapAsync(async (req, res) => {
     const { name, email, password } = req.body;
     const userDoc = await User.create({
       name,
@@ -100,65 +103,48 @@ app.post("/register", async (req, res, next) => {
       password: bcrypt.hashSync(password, bcryptSalt),
     });
     res.json(userDoc);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
 // logout route:
 app.post("/logout", (req, res) => {
   res.cookie("token", "").json(true);
 });
 
-// *****
-
-app.get("/profile", async (req, res) => {
-  try {
+app.get(
+  "/profile",
+  wrapAsync(async (req, res) => {
     const { token } = req.cookies;
     if (!token) {
-      return res.json(null); // No token provided, respond with null
+      return res.json(null);
     }
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
-        console.error("JWT verification error:", err);
-        return res.status(401).json({ error: "Unauthorized - Invalid token" });
+        throw new ExpressError(401, "Unauthorized user");
       }
       const { name, email, _id } = await User.findById(userData.id);
       res.json({ name, email, _id });
     });
-  } catch (err) {
-    console.error("Error in /profile endpoint:", err);
-    res.status(500).json({ err: "Internal Server Error" });
-  }
-  // const { token } = req.cookies;
-  // if (token) {
-  //   jwt.verify(token, jwtSecret, {}, async (err, userData) => {
-  //     if (err) throw err;
-  //     const { name, email, _id } = await User.findById(userData.id);
-  //     res.json({ name, email, _id });
-  //   });
-  // } else {
-  //   res.json(null);
-  // }
-});
+  })
+);
 
 // index route: renders all listings on homepage.
-app.get("/listings", async (req, res, next) => {
-  try {
+app.get(
+  "/listings",
+  wrapAsync(async (req, res) => {
     const allListings = await Listing.find({});
-    if (!allListings || allListings.length === 0) {
-      return res.json({ error: "No listings found" });
-    }
     res.json(allListings);
-  } catch (err) {
-    next(err);
-  }
-});
+  })
+);
 
 // new route: creates a new listing.
-app.post("/listings", async (req, res) => {
-  try {
+app.post(
+  "/listings",
+  wrapAsync(async (req, res) => {
     const { token } = req.cookies;
+    if(!token){
+      throw new ExpressError(401 , "User not logged In");
+    }
     const {
       title,
       address,
@@ -172,41 +158,32 @@ app.post("/listings", async (req, res) => {
       price,
     } = req.body;
 
-    if (token) {
-      try {
-        const userData = jwt.verify(token, jwtSecret);
-        const listing = await Listing.create({
-          owner: userData.id,
-          title,
-          address,
-          photos: addedPhotos,
-          description,
-          perks,
-          extraInfo,
-          checkIn,
-          checkOut,
-          maxGuests,
-          price,
-        });
-        res.json(listing);
-      } catch (err) {
-        // Handle JWT verification error
-        res.status(401).json({ error: "Invalid token" });
-      }
-    } else {
-      // Handle missing token
-      res.status(401).json({ error: "Token missing" });
-    }
-  } catch (error) {
-    // Handle unexpected errors
-    console.error(error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+    jwt.verify(token, jwtSecret, {}, async (err, userData) => {
+      if (err) {
+        throw new ExpressError(401, "Unauthorized user");
+      };
+      const listing = await Listing.create({
+        owner: userData.id,
+        title,
+        address,
+        photos: addedPhotos,
+        description,
+        perks,
+        extraInfo,
+        checkIn,
+        checkOut,
+        maxGuests,
+        price,
+      });
+      res.json(listing);
+    });
+  })
+);
 
 // edit route: to edit a listing
-app.put("/listings", async (req, res) => {
-  try {
+app.put(
+  "/listings",
+  wrapAsync(async (req, res) => {
     const { token } = req.cookies;
     const {
       id,
@@ -222,8 +199,13 @@ app.put("/listings", async (req, res) => {
       price,
     } = req.body;
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
-      if (err) throw err;
+      if (err) {
+        throw new ExpressError(401, "Unauthorized user");
+      }
       const listing = await Listing.findById(id);
+      if (!listing) {
+        throw new ExpressError(404, "Listing not found");
+      }
       if (userData.id === listing.owner.toString()) {
         listing.set({
           title,
@@ -237,94 +219,70 @@ app.put("/listings", async (req, res) => {
           maxGuests,
           price,
         });
+      } else {
+        throw new ExpressError(401, "Unauthorized user");
       }
       await listing.save();
       res.json("updated successfully");
     });
-  } catch (err) {
-    console.error("Error in put listing", err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+  })
+);
 
 // show route: renders all data of a particular listing.
-app.get("/listings/:id", async (req, res) => {
-  try {
+app.get(
+  "/listings/:id",
+  wrapAsync(async (req, res) => {
     let { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid listing ID" });
+      throw new ExpressError(400, "Invalid Listing Id");
     }
     const listing = await Listing.findById(id);
     if (!listing) {
-      return res.status(404).json({ error: "Listing not found" });
+      throw new ExpressError(404, "Listing not found");
     }
     res.json(listing);
-  } catch (err) {
-    console.error("Error in /listings/:id GET endpoint:", err);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+  })
+);
 
-// userlistings: gets all the listings listed by user.
-// app.get("/userlistings", async (req, res) => {
-//   const { token } = req.cookies;
-//   jwt.verify(token, jwtSecret, {}, async (err, userData) => {
-//     // const { id } = userData;
-//     res.json(await Listing.find({ owner: userData.id }));
-//   });
-// });
-
-app.get("/userlistings", async (req, res) => {
-  try {
+app.get(
+  "/userlistings",
+  wrapAsync(async (req, res) => {
     const { token } = req.cookies;
-
     if (!token) {
-      return res.status(401).json({ error: "Unauthorized - Missing token" });
+      throw new ExpressError(401, "User not logged In");
     }
-
     jwt.verify(token, jwtSecret, {}, async (err, userData) => {
       if (err) {
-        return res.status(401).json({ error: "Unauthorized - Invalid token" });
+        throw new ExpressError(401, "Unauthorized User");
       }
-
       const { id } = userData;
       const userlistings = await Listing.find({ owner: id });
-
       res.json(userlistings);
     });
-  } catch (error) {
-    console.error("Error in /userlistings endpoint:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+  })
+);
 
-app.get("/userlistings/:id", async (req, res) => {
-  // const { id } = req.params;
-  // res.json(await Listing.findById(id));
-
-  try {
+app.get(
+  "/userlistings/:id",
+  wrapAsync(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid listing ID" });
+      throw new ExpressError(400, "Invalid Listing Id");
     }
     const listing = await Listing.findById(id);
     if (!listing) {
-      return res.status(404).json({ error: "Listing not found" });
+      throw new ExpressError(404, "Listing not found");
     }
     res.json(listing);
-  } catch (error) {
-    console.error("Error in /userlistings/:id GET endpoint:", error);
-    res.status(500).json({ error: "Internal Server Error" });
-  }
-});
+  })
+);
 
-app.post("/uploadbylink", async (req, res) => {
-  try {
+app.post(
+  "/uploadbylink",
+  wrapAsync(async (req, res) => {
     const { link } = req.body;
     if (!link) {
-      return res
-        .status(400)
-        .json({ error: "Link is required in the request body" });
+      throw new ExpressError(400, "link is required");
     }
     const newName = "photo" + Date.now() + ".jpg";
     await imageDownloader.image({
@@ -332,11 +290,8 @@ app.post("/uploadbylink", async (req, res) => {
       dest: __dirname + "/uploads/" + newName,
     });
     res.json(newName);
-  } catch (err) {
-    console.error("Error in /uploadbylink endpoint:", err);
-    res.status(500).json({ err: "Internal Server Error" });
-  }
-});
+  })
+);
 
 const photosMiddleware = multer({ dest: "uploads/" });
 app.post(
@@ -356,46 +311,38 @@ app.post(
   }
 );
 
-app.get("/booking", async (req, res) => {
-  try {
+app.get(
+  "/booking",
+  wrapAsync(async (req, res) => {
     const userData = await getUserFromToken(req);
     if (!userData || !userData.id) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized - Invalid token or user not found" });
+      throw new ExpressError(401, "Unauthorized User");
     }
     res.json(await Booking.find({ user: userData.id }).populate("listing"));
-  } catch (err) {
-    console.error("Error in /booking endpoint:", err);
-    res.status(500).json({ err: "Internal Server Error" });
-  }
-});
+  })
+);
 
-app.get("/booking/:id", async (req, res) => {
-  try {
+app.get(
+  "/booking/:id",
+  wrapAsync(async (req, res) => {
     const { id } = req.params;
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ error: "Invalid booking ID" });
+      throw new ExpressError(400, "Invalid Booking Id");
     }
-
     const bookings = await Booking.findById(id).populate("listing");
     if (!bookings) {
-      return res.status(404).json({ error: "Booking not found" });
+      throw new ExpressError(404, "Booking not found");
     }
     res.json(bookings);
-  } catch (err) {
-    console.error("Error in /booking/:id endpoint:", err);
-    res.status(500).json({ err: "Internal Server Error" });
-  }
-});
+  })
+);
 
-app.post("/booking", async (req, res) => {
-  try {
+app.post(
+  "/booking",
+  wrapAsync(async (req, res) => {
     const userData = await getUserFromToken(req);
     if (!userData || !userData.id) {
-      return res
-        .status(401)
-        .json({ error: "Unauthorized - Invalid token or user not found" });
+      throw new ExpressError(401, "Unauthorized User");
     }
     const { listing, checkIn, checkOut, guests, name, phone, price } = req.body;
     if (
@@ -407,9 +354,7 @@ app.post("/booking", async (req, res) => {
       !phone ||
       !price
     ) {
-      return res
-        .status(400)
-        .json({ error: "Invalid booking data. All fields are required." });
+      throw new ExpressError(400, "All fields are required");
     }
     const booking = await Booking.create({
       listing,
@@ -422,20 +367,17 @@ app.post("/booking", async (req, res) => {
       price,
     });
     res.json(booking);
-  } catch (err) {
-    console.error("Error in /booking POST endpoint:", err);
-    res.status(500).json({ err: "Internal Server Error" });
-  }
-});
+  })
+);
 
 app.all("*", (req, res, next) => {
   next(new ExpressError(404, "Page not found!"));
 });
 
-// app.use((err, req, res, next) => {
-//   let { statusCode = 500, message = "Something went wrong!" } = err;
-//   res.status(statusCode).render("error.ejs", { message });
-// });
+app.use((err, req, res, next) => {
+  let { statusCode = 500, message = "Something went wrong!" } = err;
+  res.status(statusCode).json({ error: message });
+});
 
 app.listen(PORT, () => {
   console.log(`Server is listening on port ${PORT}`);
