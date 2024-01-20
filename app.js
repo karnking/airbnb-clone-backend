@@ -1,5 +1,5 @@
-const express = require("express");
 require("dotenv").config();
+const express = require("express");
 const app = express();
 const cors = require("cors");
 const mongoose = require("mongoose");
@@ -18,7 +18,7 @@ const fs = require("fs");
 
 const bcryptSalt = bcrypt.genSaltSync(10);
 const jwtSecret = process.env.JWT_SECRET;
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const corsOrigin = process.env.CORS_ORIGIN;
 
 const DB_URL = process.env.DATABASE;
