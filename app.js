@@ -36,12 +36,7 @@ async function main() {
 }
 
 app.use(
-  cors({
-    origin: "*",
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    optionsSuccessStatus: 204,
-  })
+  cors()
 );
 app.use("/uploads", express.static(__dirname + "/uploads"));
 app.use(express.urlencoded({ extended: true }));
