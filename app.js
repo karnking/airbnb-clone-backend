@@ -36,7 +36,7 @@ async function main() {
 
 app.use(
   cors({
-    origin: https://comfy-croissant-256196.netlify.app/,
+    origin: "https://comfy-croissant-256196.netlify.app/",
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204,
