@@ -37,7 +37,7 @@ async function main() {
 
 app.use(
   cors({
-    origin: corsOrigin,
+    origin: "*",
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     optionsSuccessStatus: 204,
