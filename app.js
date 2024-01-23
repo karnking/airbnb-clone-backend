@@ -19,7 +19,6 @@ const fs = require("fs");
 const bcryptSalt = bcrypt.genSaltSync(10);
 const jwtSecret = process.env.JWT_SECRET;
 const PORT = process.env.PORT;
-const corsOrigin = process.env.CORS_ORIGIN;
 
 const DB_URL = process.env.DATABASE;
 
@@ -36,7 +35,12 @@ async function main() {
 }
 
 app.use(
-  cors()
+  cors({
+    origin: https://comfy-croissant-256196.netlify.app/,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    optionsSuccessStatus: 204,
+  })
 );
 app.use("/uploads", express.static(__dirname + "/uploads"));
 app.use(express.urlencoded({ extended: true }));
